@@ -25,7 +25,7 @@ public class SimpleTestForAkkaNetActor : TestKit
         var mockFoo = new Mock<IFoo>();
         var services = new ServiceCollection();
         mockFoo.Setup(g => g.Bar()).Returns(It.IsAny<int>());
-        services.AddScoped<IFoo>(o => mockFoo.Object);
+        services.AddTransient(o => mockFoo.Object);
         var provider = services.BuildServiceProvider();
 
         var probe = CreateTestProbe();
@@ -41,7 +41,7 @@ public class SimpleTestForAkkaNetActor : TestKit
         var mockFoo = new Mock<IFoo>();
         var services = new ServiceCollection();
         mockFoo.Setup(g => g.Bar()).Returns(It.IsAny<int>());
-        services.AddScoped<IFoo>(o => mockFoo.Object);
+        services.AddTransient(o => mockFoo.Object);
         var provider = services.BuildServiceProvider();
 
         var targetActor = ActorOfAsTestActorRef<TimerActor>(Props.Create<TimerActor>(provider));
@@ -59,17 +59,17 @@ public class SimpleTestForAkkaNetActor : TestKit
         var services = new ServiceCollection();
 
         mockFoo.Setup(g => g.Bar()).Returns(It.IsAny<int>());
-        services.AddScoped<IFoo>(o => mockFoo.Object);
+        services.AddTransient(o => mockFoo.Object);
 
         var provider = services.BuildServiceProvider();
 
         var probe = CreateTestProbe();
         var sutActor = Sys.ActorOf(Props.Create<TimerActor>(provider));
         sutActor.Tell(1, probe.Ref);
-        
+        // sutActor.Tell("start", probe.Ref);
         // if you don't put this before verify, then the test will fail...
         // ExpectNoMsg for me it's more like the way to wait until the message received
-        ExpectNoMsg();
+        probe.ExpectNoMsg();
 
         mockFoo.Verify(g => g.Bar(), Times.AtLeastOnce);
     }
@@ -101,7 +101,7 @@ public class TimerActor : ReceiveActor, IWithTimers
         _scope = sp.CreateScope();
 
         var foo = _scope.ServiceProvider.GetRequiredService<IFoo>();
-        
+
         Receive<string>(message =>
         {
             foo.Bar();
