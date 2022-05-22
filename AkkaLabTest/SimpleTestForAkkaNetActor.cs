@@ -66,11 +66,10 @@ public class SimpleTestForAkkaNetActor : TestKit
         var probe = CreateTestProbe();
         var sutActor = Sys.ActorOf(Props.Create<TimerActor>(provider));
         sutActor.Tell(1, probe.Ref);
-        // sutActor.Tell("start", probe.Ref);
+
         // if you don't put this before verify, then the test will fail...
         // ExpectNoMsg for me it's more like the way to wait until the message received
-        probe.ExpectNoMsg();
-
+        probe.ExpectNoMsg(250);
         mockFoo.Verify(g => g.Bar(), Times.AtLeastOnce);
     }
 }
