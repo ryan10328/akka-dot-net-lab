@@ -60,7 +60,7 @@ public class SimpleTestForAkkaNetActor : TestKit, IClassFixture<AkkaDiFixture>
         actual.ShouldBe("start");
     }
 
-    [Fact(DisplayName = "should call bar method after timer-actor received string message")]
+    [Fact(DisplayName = "should call BarBar() twice after timer-actor received int message")]
     public void Should_Call_Bar_Method_After_TimerActor_Received_String_Message()
     {
         var mockFoo = new Mock<IFoo>();
