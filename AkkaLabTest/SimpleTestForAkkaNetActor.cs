@@ -10,23 +10,28 @@ namespace AkkaLabTest;
 // How to Unit Test Akka.NET Actors with Akka.NET.TestKit
 // https://petabridge.com/blog/how-to-unit-test-akkadotnet-actors-akka-testkit/
 
-public class SimpleTestForAkkaNetActor : TestKit
+public class SimpleTestForAkkaNetActor : TestKit, IClassFixture<AkkaDiFixture>
 {
     private readonly ITestOutputHelper _testOutputHelper;
+    private readonly AkkaDiFixture _fixture;
 
-    public SimpleTestForAkkaNetActor(ITestOutputHelper testOutputHelper)
+    public SimpleTestForAkkaNetActor(ITestOutputHelper testOutputHelper, AkkaDiFixture fixture)
     {
         _testOutputHelper = testOutputHelper;
+        _fixture = fixture;
     }
 
     [Fact(DisplayName = "test parent actor is able to receive child actor's message")]
     public void Test_Parent_Actor_Is_Able_To_Receive_Child_Actor_s_Message()
     {
         var mockFoo = new Mock<IFoo>();
-        var services = new ServiceCollection();
         mockFoo.Setup(g => g.Bar()).Returns(It.IsAny<int>());
-        services.AddTransient(o => mockFoo.Object);
-        var provider = services.BuildServiceProvider();
+
+        var provider = _fixture.SetupTestWithDependencies(services =>
+        {
+            // register services from caller
+            services.AddTransient(o => mockFoo.Object);
+        });
 
         var probe = CreateTestProbe();
         var timeActor = Sys.ActorOf(Props.Create<TimerActor>(provider));
@@ -39,10 +44,13 @@ public class SimpleTestForAkkaNetActor : TestKit
     public void Test_Actor_s_Internal_Stat_Is_Correct()
     {
         var mockFoo = new Mock<IFoo>();
-        var services = new ServiceCollection();
         mockFoo.Setup(g => g.Bar()).Returns(It.IsAny<int>());
-        services.AddTransient(o => mockFoo.Object);
-        var provider = services.BuildServiceProvider();
+
+        var provider = _fixture.SetupTestWithDependencies(services =>
+        {
+            // register services in caller
+            services.AddTransient(o => mockFoo.Object);
+        });
 
         var targetActor = ActorOfAsTestActorRef<TimerActor>(Props.Create<TimerActor>(provider));
         targetActor.Tell("start");
@@ -56,12 +64,12 @@ public class SimpleTestForAkkaNetActor : TestKit
     public void Should_Call_Bar_Method_After_TimerActor_Received_String_Message()
     {
         var mockFoo = new Mock<IFoo>();
-        var services = new ServiceCollection();
 
-        mockFoo.Setup(g => g.Bar()).Returns(It.IsAny<int>());
-        services.AddTransient(o => mockFoo.Object);
-
-        var provider = services.BuildServiceProvider();
+        var provider = _fixture.SetupTestWithDependencies(services =>
+        {
+            // determine registration services from outside
+            services.AddTransient(o => mockFoo.Object);
+        });
 
         var probe = CreateTestProbe();
         var sutActor = Sys.ActorOf(Props.Create<TimerActor>(provider));
@@ -70,13 +78,15 @@ public class SimpleTestForAkkaNetActor : TestKit
         // if you don't put this before verify, then the test will fail...
         // ExpectNoMsg for me it's more like the way to wait until the message received
         probe.ExpectNoMsg(250);
-        mockFoo.Verify(g => g.Bar(), Times.AtLeastOnce);
+        mockFoo.Verify(g => g.BarBar(), Times.Exactly(2));
     }
 }
 
 public interface IFoo
 {
     int Bar();
+
+    void BarBar();
 }
 
 public class Foo : IFoo
@@ -85,11 +95,15 @@ public class Foo : IFoo
     {
         return 10328;
     }
+
+    public void BarBar()
+    {
+    }
 }
 
-public class TimerActor : ReceiveActor, IWithTimers
+public class TimerActor : ReceiveActor //, IWithTimers
 {
-    public ITimerScheduler Timers { get; set; }
+    // public ITimerScheduler Timers { get; set; }
 
     public string Message { get; set; }
 
@@ -112,11 +126,15 @@ public class TimerActor : ReceiveActor, IWithTimers
             Sender.Tell("hello");
         });
 
-        Receive<int>(_ => { foo.Bar(); });
+        Receive<int>(_ =>
+        {
+            foo.BarBar();
+            foo.BarBar();
+        });
     }
 
-    protected override void PreStart()
-    {
-        Timers.StartPeriodicTimer("timer-actor-key", "start", TimeSpan.FromSeconds(0.1), TimeSpan.FromSeconds(5));
-    }
+    // protected override void PreStart()
+    // {
+    //     Timers.StartPeriodicTimer("timer-actor-key", "start", TimeSpan.FromSeconds(0.1), TimeSpan.FromSeconds(5));
+    // }
 }
